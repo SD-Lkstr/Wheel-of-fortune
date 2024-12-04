@@ -62,6 +62,32 @@ function Wheel() {
     }
   };
 
+   // const handleFileUpload = async (event) => {
+  //   const file = event.target.files[0];
+  //   if (file) {
+  //     const formData = new FormData();
+  //     formData.append("file", file);
+  
+  //     try {
+  //       // Make the POST request using axios
+  //       const response = await axios.post("/upload-file", formData, {
+  //         headers: {
+  //           "Content-Type": "multipart/form-data", // Important for file upload
+  //         },
+  //       });
+  
+  //       // Check if the response contains the expected 'segments' data
+  //       if (response.data && response.data.segments) {
+  //         setSegments(response.data.segments);
+  //       } else {
+  //         console.error("Error: Segments not found in response");
+  //       }
+  //     } catch (error) {
+  //       console.error("Error uploading file:", error);
+  //     }
+  //   }
+  // };
+  
   useEffect(() => {
     customPrizeRef.current = customPrize; 
   }, [customPrize]); 

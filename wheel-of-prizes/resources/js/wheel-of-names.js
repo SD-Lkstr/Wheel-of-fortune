@@ -29,7 +29,7 @@ const WheelComponent = ({
   const timerDelay = 20; // Adjust for smoother animation
   let currentSegment = "";
   let isStarted = false;
-  const [isSpinning, setIsSpinning] = useState(false);
+
   useEffect(() => {
     if (winningSegment !== null) {
       console.log("Winning Segment:", winningSegment);
@@ -109,30 +109,30 @@ const WheelComponent = ({
 
   };
 
-  const drawSegment = (key, lastAngle, angle, isWinning) => {
+  const drawSegment = (key, lastAngle, angle, isWinning, isCurrent) => {
     const ctx = canvasContext;
     const value = segments[key].name;
-
+  
     const color1 = '#B20000';  // Red
     const color2 = '#006400';  // Green
-
+  
     const color = key % 2 === 0 ? color1 : color2;
-
-    // Apply color and highlight the winning segment
+  
+    // Apply color and highlight the winning or current segment
     ctx.save();
     ctx.beginPath();
     ctx.moveTo(centerX, centerY);
     ctx.arc(centerX, centerY, size, lastAngle, angle, false);
     ctx.lineTo(centerX, centerY);
     ctx.closePath();
-
-    // If it's the winning segment, use a different color
-    ctx.fillStyle = isWinning ? '#FFD700' : color; // Gold for winning segment
+  
+    // Use gold for the winning segment, red for current, and the default for others
+    ctx.fillStyle = isWinning ? '#FFD700' : (isCurrent ? 'rgba(255, 0, 0, 0.5)' : color);  // Gold for winning, semi-transparent red for current
     ctx.strokeStyle = '#000000'; // Black outline
-
+  
     ctx.fill();
     ctx.stroke();
-
+  
     // Draw segment text
     ctx.restore();
     ctx.save();
@@ -142,10 +142,10 @@ const WheelComponent = ({
     ctx.font = "bold 1.5em proxima-nova";
     ctx.fillText(value.substr(0, 21), size / 2 + 80, 0);
     ctx.restore();
-};
+  };
 
  
-const drawWheel = (winningSegmentIndex) => {
+const drawWheel = (highlightedSegmentIndex) => {
   const ctx = canvasContext;
   let lastAngle = angleCurrent;
   const len = segments.length;
@@ -158,8 +158,10 @@ const drawWheel = (winningSegmentIndex) => {
 
   for (let i = 1; i <= len; i++) {
     const angle = PI2 * (i / len) + angleCurrent;
-    const isWinning = winningSegmentIndex !== null && (i - 1 === winningSegmentIndex);  // Check if this is the winning segment
-    drawSegment(i - 1, lastAngle, angle, isWinning);  // Pass the isWinning flag
+    const isWinning = highlightedSegmentIndex !== null && (i - 1 === highlightedSegmentIndex);  // Check if this is the winning segment
+    const isCurrent = highlightedSegmentIndex !== null && (i - 1 === highlightedSegmentIndex);  // Highlight the current segment
+    
+    drawSegment(i - 1, lastAngle, angle, isWinning, isCurrent);  // Pass the isWinning and isCurrent flags
     lastAngle = angle;
   }
 
@@ -185,73 +187,71 @@ const drawWheel = (winningSegmentIndex) => {
   ctx.stroke();
 };
 
-  const onTimerTick = () => {
-    frames++;
-    draw();
-  
-    const duration = new Date().getTime() - spinStart;
-    let progress = 0;
-    let finished = false;
-    const segmentAngularWidth = Math.PI * 2 / segments.length;
-  
-    // Regardless of the winning segment index, we add 2 full rotations
-    // to the target angle, ensuring the wheel spins for at least 2 full rotations.
-    const twoFullRotations = 2 * Math.PI * 2; // Two full rotations in radians
-    
-       const winningSegmentIndex = segments.findIndex(
+const onTimerTick = () => {
+  frames++;
+  draw();
+
+  const duration = new Date().getTime() - spinStart;
+  let progress = 0;
+  let finished = false;
+  const segmentAngularWidth = Math.PI * 2 / segments.length;
+
+  // Two full rotations in radians
+  const twoFullRotations = 2 * Math.PI * 2;
+
+  const winningSegmentIndex = segments.findIndex(
     (segment) => segment.name === winningSegmentRef.current.name
   );
-    console.log("This is the index", winningSegmentIndex);
-  
-    // Calculate the target angle by adding two full rotations to the target angle.
-    const targetAngle = (winningSegmentIndex * segmentAngularWidth + twoFullRotations);
-  
-    let angleDifference = (targetAngle - angleCurrent + Math.PI * 2) % (Math.PI * 2);
-    let angleToTarget = angleDifference;
-  
-    // Ensure that the spin continues until two full rotations are done
-    if (frames > 0 && angleToTarget < 0.001 && duration >= 2 * upTime + 2 * downTime) {
-      progress = 1;
-      angleDelta = 0;
+
+  // Calculate the target angle by adding two full rotations to the target angle.
+  const targetAngle = (winningSegmentIndex * segmentAngularWidth + twoFullRotations);
+
+  let angleDifference = (targetAngle - angleCurrent + Math.PI * 2) % (Math.PI * 2);
+  let angleToTarget = angleDifference;
+
+  // Ensure that the spin continues until two full rotations are done
+  if (frames > 0 && angleToTarget < 0.001 && duration >= 2 * upTime + 2 * downTime) {
+    progress = 1;
+    angleDelta = 0;
+  } else {
+    const totalDuration = upTime + downTime;
+    if (duration < upTime) {
+      progress = duration / upTime;
+      angleDelta = maxSpeed * Math.sin((progress * Math.PI) / 2);
     } else {
-      const totalDuration = upTime + downTime;
-      if (duration < upTime) {
-        progress = duration / upTime;
-        angleDelta = maxSpeed * Math.sin((progress * Math.PI) / 2);
-      } else {
-        progress = (duration - upTime) / downTime;
-        angleDelta = maxSpeed * Math.sin((progress * Math.PI) / 2 + Math.PI / 2);
-      }
+      progress = (duration - upTime) / downTime;
+      angleDelta = maxSpeed * Math.sin((progress * Math.PI) / 2 + Math.PI / 2);
     }
-  
-    // If the spin is finished (duration is complete), set the final angle
-    if (angleToTarget === targetAngle || duration >= upTime + downTime || progress >= 1) {
-      finished = true;
-      angleDelta = angleDifference;
-    }
-  
-    // Update the current angle with the delta
-    angleCurrent += angleDelta;
-    angleCurrent = angleCurrent % (Math.PI * 2);
-  
-    // Calculate the current segment based on the angle
-    const epsilon = 1e-6;
-    let segmentIndex = Math.floor(((angleCurrent + epsilon) / (Math.PI * 2)) * segments.length) % segments.length;
-    if (segmentIndex < 0) segmentIndex += segments.length;
-    currentSegment = segments[segmentIndex];
-  
-    // Only highlight the winning segment after the spin is finished
-    if (finished) {
-      setFinished(true);
-      onFinished(currentSegment);
-      clearInterval(timerHandle);
-      timerHandle = 0;
-      angleDelta = 0;
-    }
-  
-    // Update the drawing, passing `finished` to decide whether to highlight the winning segment
-    drawWheel(finished ? winningSegmentIndex : null);  // Pass null when not finished to prevent highlighting
-  };
+  }
+
+  // If the spin is finished (duration is complete), set the final angle
+  if (angleToTarget === targetAngle || duration >= upTime + downTime || progress >= 1) {
+    finished = true;
+    angleDelta = angleDifference;
+  }
+
+  // Update the current angle with the delta
+  angleCurrent += angleDelta;
+  angleCurrent = angleCurrent % (Math.PI * 2);
+
+  // Calculate the current segment based on the angle
+  const epsilon = 1e-6;
+  let segmentIndex = Math.floor(((angleCurrent + epsilon) / (Math.PI * 2)) * segments.length) % segments.length;
+  if (segmentIndex < 0) segmentIndex += segments.length;
+  currentSegment = segments[segmentIndex];
+
+  // Only highlight the winning segment after the spin is finished
+  if (finished) {
+    setFinished(true);
+    onFinished(currentSegment);
+    clearInterval(timerHandle);
+    timerHandle = 0;
+    angleDelta = 0;
+  }
+
+  // Update the drawing, passing `finished` to decide whether to highlight the winning segment
+  drawWheel(finished ? winningSegmentIndex : segmentIndex);  // Pass the current segment index to show the trailing effect
+};
   
 
   
