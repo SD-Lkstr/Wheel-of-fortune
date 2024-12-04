@@ -1,0 +1,26 @@
+const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+  
+      reader.onload = () => {
+        const fileContent = reader.result;
+        const lines = fileContent.split("\n"); // Split by lines
+        const newSegments = lines
+          .filter(line => line.trim()) // Filter out any empty lines
+          .map(line => {
+            const [name, category] = line.split(",").map(item => item.trim()); // Split by comma and trim spaces
+            return { name, category }; // Create a segment object
+          });
+  
+        setSegments(newSegments); // Update the segments state with the parsed data
+      };
+  
+      reader.onerror = () => {
+        console.error("Error reading file.");
+      };
+  
+      reader.readAsText(file); // Reads the file as text
+    }
+  };
+  
