@@ -14,9 +14,6 @@ function shuffleArray(array) {
 }
 
 function Wheel() {
-  
-
-
   const [prize, setPrize] = useState(null);
   const [segments, setSegments] = useState([]);
   const [confetti, setConfetti] = useState(false);
@@ -29,60 +26,35 @@ function Wheel() {
   const [customPrize, setCustomPrize] = useState("");
   const [selectedRound, setSelectedRound] = useState("1");
   const [winningSegment, setWinningSegment] = useState(null);
+  const [spinCount, setSpinCount] = useState(0); // Track number of spins
 
   const customPrizeRef = useRef(customPrize);
-  
-  const handleFileUpload = async (event) => {
+
+  const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
-      const formData = new FormData();
-      formData.append("file", file);
+      const reader = new FileReader();
   
-      try {
-        // Make the POST request using axios
-        const response = await axios.post("/upload-file", formData, {
-          headers: {
-            "Content-Type": "multipart/form-data", // Important for file upload
-          },
-        });
+      reader.onload = () => {
+        const fileContent = reader.result;
+        const lines = fileContent.split("\n"); // Split by lines
+        const newSegments = lines
+          .filter(line => line.trim()) // Filter out any empty lines
+          .map(line => {
+            const [name, category] = line.split(",").map(item => item.trim()); // Split by comma and trim spaces
+            return { name, category }; // Create a segment object
+          });
   
-        // Check if the response contains the expected 'segments' data
-        if (response.data && response.data.segments) {
-          setSegments(response.data.segments);
-        } else {
-          console.error("Error: Segments not found in response");
-        }
-      } catch (error) {
-        console.error("Error uploading file:", error);
-      }
+        setSegments(newSegments); // Update the segments state with the parsed data
+      };
+  
+      reader.onerror = () => {
+        console.error("Error reading file.");
+      };
+  
+      reader.readAsText(file); // Reads the file as text
     }
   };
-
-   // const handleFileUpload = async (event) => {
-  //   const file = event.target.files[0];
-  //   if (file) {
-  //     const formData = new FormData();
-  //     formData.append("file", file);
-  
-  //     try {
-  //       // Make the POST request using axios
-  //       const response = await axios.post("/upload-file", formData, {
-  //         headers: {
-  //           "Content-Type": "multipart/form-data", // Important for file upload
-  //         },
-  //       });
-  
-  //       // Check if the response contains the expected 'segments' data
-  //       if (response.data && response.data.segments) {
-  //         setSegments(response.data.segments);
-  //       } else {
-  //         console.error("Error: Segments not found in response");
-  //       }
-  //     } catch (error) {
-  //       console.error("Error uploading file:", error);
-  //     }
-  //   }
-  // };
   
   useEffect(() => {
     customPrizeRef.current = customPrize; 
@@ -98,14 +70,8 @@ function Wheel() {
     return color;
   }
 
-
-  // const numberOfNewColors = 104;
-  // for (let i = 0; i < numberOfNewColors; i++) {
-  //   segColors.push(generateRandomColor());
-  // }
   const onFinished = (winner) => {
     console.log("Winner:", winner);
-    // const prizeForWinner = customPrize ? customPrize : "No prize available";
     const prizeForWinner = customPrizeRef.current || "No prize available"; // Access prize from ref
     setAudioSource("/celebrate.mp3");
     if (audioPlayerRef.current) {
@@ -119,20 +85,17 @@ function Wheel() {
   
     setConfetti(true);
   
-
-    console.log("after finish",customPrize);
-    console.log("after finish 2",prizeForWinner);
     setPrize(prizeForWinner);
     setWinner(winner.name);
-    console.log("winningsegment on finish",winningSegment);
     setTimeout(() => {
       setPrize(null);
-    }, 5000);
+      setWinner(null);
+    }, 7000);
   
     setTimeout(() => {
       setConfetti(false);
       setWinningSegment(null); // Clear the winning segment
-    }, 70000);
+    }, 7000);
   };
 
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -163,33 +126,46 @@ function Wheel() {
     }
   }, [audioSource]);
 
-  const handleModalClose = () => {
-    setShowModal(false);
+  //Determine round based on spin count
+  const determineRound = () => {
+    if (spinCount <= 15) return "1";
+    if (spinCount <= 30) return "2";
+    if (spinCount <= 46) return "3";
+    if (spinCount <= 62) return "4";
+    return "5"; // For spin count > 62
   };
 
-  const handleModalSubmit = () => {
-    console.log("selected round", selectedRound);
-    console.log("selected Prize", customPrize);
-    // Filter the updated segments
+  useEffect(() => {
+    const currentRound = determineRound();
+    setSelectedRound(currentRound);
+  }, [spinCount]);
+
+  const startSpin = () => {
+    setSpinCount(prevCount => prevCount + 1); // Increment spin count on each spin
+    setAudioSource("/drumroll.mp3");
+  
+    console.log(audioSource);
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.stop();
+      audioPlayerRef.current.play();
+    }
+  
+    // Filter segments based on the selected round
     const filteredSegments = segments.filter(
       (segment) => segment.category === `Round ${selectedRound}`
     );
   
+    // Randomly pick a winner from the filtered segments
     if (filteredSegments.length > 0) {
       const randomIndex = Math.floor(Math.random() * filteredSegments.length);
       const randomSegment = filteredSegments[randomIndex];
-      setWinningSegment(randomSegment); // Set the winning segment
+      setWinningSegment(randomSegment);  // Set the winning segment
     } else {
-      setWinningSegment(null); // Ensure no segment is preselected if the round has no segments
+      setWinningSegment(null); // If no segments available, reset
     }
-    setSelectedRound("1");
-    // Close the modal
-    setShowModal(false);
   };
   
 
-
-  console.log("chosen winner", winningSegment);
   return (
     <div
       id="wheelCircle"
@@ -227,19 +203,11 @@ function Wheel() {
         isOnlyOnce={true}
         upDuration={50} 
         downDuration={4000}
-        spinDuration={30000}
-        onSpinStart={() => {
-
-          // Play the audio when the spin starts
-          setAudioSource("/winner.mp3");
-          if (audioPlayerRef.current) {
-            audioPlayerRef.current.stop();
-            audioPlayerRef.current.play();
-          }
-        }}
+        spinDuration={5000}
+        onSpinStart={startSpin}
       />
 
-      {(winner && prize) && (
+      {(winner) && (
         <div
           style={{
             position: "absolute",
@@ -255,121 +223,18 @@ function Wheel() {
             zIndex: 10,
           }}
         >
-          {`Winner: ${winner} - Prize: ${prize}`}
+          {`Winner: ${winner}`}
         </div>
       )}
 
-
-          {/* Prize input and round select */}
-      {/* Prize input and round select in a modal */}
-      {showModal && (
-        <div
-          style={{
-            position: "absolute",
-            top: "20px",
-            left: "20px",
-            backgroundColor: "rgba(0, 0, 0, 0.7)",
-            padding: "20px",
-            borderRadius: "10px",
-            color: "#fff",
-            zIndex: 100,
-            width: "300px",
-          }}
-        >
-          <h3>Enter Prize and Select Round</h3>
-          <input
-            type="text"
-            placeholder="Enter a custom prize"
-            value={customPrize}
-            onChange={(e) => setCustomPrize(e.target.value)}
-            style={{
-              padding: "10px",
-              borderRadius: "5px",
-              border: "1px solid #fff",
-              color: "#fff",
-              backgroundColor: "transparent",
-              marginBottom: "10px",
-              width: "92%",
-            }}
-          />
-          <div>
-            <select
-              value={selectedRound}
-              onChange={(e) => setSelectedRound(e.target.value)}
-              style={{
-                padding: "10px",
-                borderRadius: "5px",
-                border: "1px solid #fff",
-                color: "#fff",
-                backgroundColor: "transparent",
-                width: "100%",
-              }}
-            >
-              <option value="1" style={{ color: "black", backgroundColor: "#fff" }}>Round 1</option>
-            <option value="2" style={{ color: "black", backgroundColor: "#fff" }}>Round 2</option>
-            <option value="3" style={{ color: "black", backgroundColor: "#fff" }}>Round 3</option>
-            <option value="4" style={{ color: "black", backgroundColor: "#fff" }}>Round 4</option>
-            </select>
-          </div>
-          <div style={{ marginTop: "10px", display: "flex", justifyContent: "space-between" }}>
-            <button
-              onClick={handleModalSubmit}
-              style={{
-                padding: "10px",
-                borderRadius: "5px",
-                border: "1px solid #fff",
-                color: "#fff",
-                backgroundColor: "#28a745",
-                cursor: "pointer",
-              }}
-            >
-              Submit
-            </button>
-            <button
-              onClick={handleModalClose}
-              style={{
-                padding: "10px",
-                borderRadius: "5px",
-                border: "1px solid #fff",
-                color: "#fff",
-                backgroundColor: "#dc3545",
-                cursor: "pointer",
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Button to open the modal */}
-      <button
-        onClick={() => setShowModal(true)}
-        style={{
-          position: "absolute",
-          left: "20px",
-          padding: "10px 20px",
-          borderRadius: "5px",
-          border: "1px solid #fff",
-          color: "#fff",
-          backgroundColor: "#007bff",
-          cursor: "pointer",
-          zIndex: 10,
-        }}
-      >
-        Open Prize Modal
-      </button>
-
-       {/* Input field for uploading the text file */}
-       <input 
+      {/* Input field for uploading the text file */}
+      <input 
         type="file" 
         id="fileInput" 
         style={{ position: "absolute", top: "20px", right: "20px" }} 
         onChange={handleFileUpload} 
       />
     </div>
-
-    
   );
 }
 

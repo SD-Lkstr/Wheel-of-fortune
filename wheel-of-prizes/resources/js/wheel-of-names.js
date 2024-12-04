@@ -77,11 +77,7 @@ const WheelComponent = ({
   };
 
   const spin = () => {
-    if (!winningSegmentRef.current) {
-      console.log("cant spin")
-      return;  // Prevents the spin logic from starting
-    }
-    
+
     if (segments.length <= 1) {
       console.log("Spin disabled: Only one segment left");
       return;  
